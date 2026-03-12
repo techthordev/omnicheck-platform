@@ -8,9 +8,9 @@ This guide describes how to set up the development environment on Fedora Linux.
 
 Install the required tooling before starting.
 
-### Java (Mandrel)
+## Java (Mandrel)
 
-Install **Mandrel 25.0.2** via SDKMAN:
+Install Mandrel via SDKMAN:
 
 ```bash
 sdk install java 25.0.2.r25-mandrel
@@ -24,28 +24,27 @@ java -version
 
 ---
 
-### Container Runtime
+## Container Runtime
 
-Install Podman and the Docker-compatible compose plugin.
+Install Podman and the compose plugin.
 
-Required packages:
-
-* podman
-* podman-compose **or** podman-docker
-
-Example (Fedora):
+Example for Fedora:
 
 ```bash
 sudo dnf install podman podman-compose
 ```
 
+Verify installation:
+
+```bash
+podman --version
+```
+
 ---
 
-### Node.js
+## Node.js
 
-Angular 21 requires **Node.js 22.x or newer**.
-
-Install via your preferred method (NodeSource, fnm, nvm, etc.).
+Angular 21 requires **Node.js 22 or newer**.
 
 Verify:
 
@@ -55,36 +54,90 @@ node -v
 
 ---
 
+## direnv (Environment Loader)
+
+Install direnv:
+
+```bash
+sudo dnf install direnv
+```
+
+Enable direnv in your shell.
+
+Add to `~/.zshrc`:
+
+```bash
+eval "$(direnv hook zsh)"
+```
+
+Reload your shell:
+
+```bash
+exec zsh
+```
+
+---
+
 # 2. Environment Variables
 
-Project credentials are stored in a `.env` file in the project root.
+All credentials are stored in a `.env` file in the project root.
 
-This file is **never committed to Git**.
+The `.env` file **must never be committed to Git**.
 
-Create it from the example file:
+Create it from the example:
 
 ```bash
 cp .env.example .env
 ```
 
-Then edit it and provide your local values.
-
-Example variables:
+Example `.env`:
 
 ```
-POSTGRES_USER=omnicheck
-POSTGRES_PASSWORD=secret
 POSTGRES_DB=omnicheck_dev
+POSTGRES_USER=omnicheck
+POSTGRES_PASSWORD=omnicheck_secret
 POSTGRES_PORT=5432
+
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/omnicheck_dev
+SPRING_DATASOURCE_USERNAME=omnicheck
+SPRING_DATASOURCE_PASSWORD=omnicheck_secret
+```
+
+---
+
+## Enable direnv for the Project
+
+Create `.envrc` in the project root:
+
+```bash
+echo "dotenv" > .envrc
+```
+
+Allow direnv to load the environment:
+
+```bash
+direnv allow
+```
+
+From now on, every time you enter the project directory the variables from `.env` will automatically be loaded.
+
+Verify:
+
+```bash
+echo $SPRING_DATASOURCE_URL
+```
+
+Expected output:
+
+```
+jdbc:postgresql://localhost:5432/omnicheck_dev
 ```
 
 ---
 
 # 3. Start Development Infrastructure
 
-Start the PostgreSQL development container using Podman.
-
-The `.env` file must be explicitly provided to Compose:
+Start the PostgreSQL container:
 
 ```bash
 podman compose \
@@ -93,13 +146,13 @@ podman compose \
   up -d
 ```
 
-Verify the container is running:
+Verify:
 
 ```bash
 podman ps
 ```
 
-You should see:
+You should see the container:
 
 ```
 omnicheck-postgres-dev
@@ -109,7 +162,7 @@ omnicheck-postgres-dev
 
 # 4. Application Start
 
-Open separate terminals for backend and frontend.
+Use separate terminals for backend and frontend.
 
 ---
 
@@ -120,7 +173,17 @@ cd backend
 ./mvnw spring-boot:run
 ```
 
-The backend will connect to the PostgreSQL container and start the API server.
+The backend will start on:
+
+```
+http://localhost:8080
+```
+
+During startup:
+
+* Spring Boot initializes the application
+* Flyway runs database migrations
+* Hibernate configures the ORM layer
 
 ---
 
@@ -132,15 +195,19 @@ npm install
 ng serve
 ```
 
-Angular will start the development server.
+The Angular development server starts on:
+
+```
+http://localhost:4200
+```
 
 ---
 
 # 5. Database Migrations
 
-Database migrations are handled automatically by **Flyway** via **Spring Boot**.
+Database migrations are handled automatically by Flyway.
 
-Migration scripts are located in:
+Migration files are located in:
 
 ```
 backend/src/main/resources/db/migration
@@ -150,24 +217,12 @@ Example:
 
 ```
 V1__init.sql
-V2__add_users.sql
+V2__create_tables.sql
 ```
 
-Flyway runs automatically **when the backend starts**.
+Flyway runs migrations automatically when the backend starts.
 
-Startup flow:
-
-```
-PostgreSQL container starts
-↓
-Spring Boot application starts
-↓
-Flyway checks migration history
-↓
-New migrations are applied
-```
-
-Migration status is stored in the table:
+Migration history is stored in the table:
 
 ```
 flyway_schema_history
@@ -175,30 +230,13 @@ flyway_schema_history
 
 ---
 
-# 6. Native Build
+# 6. Database Access
 
-To compile the backend into a native executable using Mandrel:
-
-```bash
-cd backend
-./mvnw native:compile -Pnative
-```
-
-The resulting binary will be located in:
-
-```
-backend/target/
-```
-
----
-
-# 7. Database Check
-
-To inspect the running database:
+Open a PostgreSQL shell inside the container:
 
 ```bash
 podman exec -it omnicheck-postgres-dev \
-  psql -U omnicheck -d omnicheck_dev
+psql -U omnicheck -d omnicheck_dev
 ```
 
 List tables:
@@ -215,22 +253,51 @@ SELECT * FROM flyway_schema_history;
 
 ---
 
-# 8. Stopping the Environment
+# 7. Native Build
 
-Stop the development infrastructure:
+To build a native executable using Mandrel:
+
+```bash
+cd backend
+./mvnw native:compile -Pnative
+```
+
+The binary will be generated in:
+
+```
+backend/target/
+```
+
+---
+
+# 8. Stop the Development Environment
+
+Stop containers:
 
 ```bash
 podman compose \
-  -f infrastructure/compose.dev.yml \
-  down
+-f infrastructure/compose.dev.yml \
+down
 ```
 
-To also remove database volumes:
+Remove containers and volumes:
 
 ```bash
 podman compose \
-  -f infrastructure/compose.dev.yml \
-  down -v
+-f infrastructure/compose.dev.yml \
+down -v
 ```
 
-⚠️ This deletes all local database data.
+⚠️ This deletes the local database data.
+
+---
+
+# 9. Project Structure
+
+```
+backend/        Spring Boot backend
+frontend/       Angular frontend
+db/             database documentation / optional scripts
+docs/           project documentation
+infrastructure/ container and deployment configuration
+```
