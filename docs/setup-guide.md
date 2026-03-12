@@ -5,9 +5,11 @@ This guide describes how to set up the development environment on Fedora Linux.
 ## 1. Prerequisites
 
 - **Mandrel 25.0.2**: Install via SDKMAN!
+
   ```bash
   sdk install java 25.0.2.r25-mandrel
   ```
+  
 - **Podman**: Ensure `podman` and `podman-compose` (package `podman-compose` or `podman-docker`) are installed.
 - **Node.js**: Version 22.x or higher for Angular 21.
 
@@ -39,11 +41,13 @@ podman compose -f infrastructure/compose.dev.yml up -d
 ## 4. Application Start
 
 **Backend:**
+
 ```bash
 cd backend && ./mvnw spring-boot:run
 ```
 
 **Frontend:**
+
 ```bash
 cd frontend && npm install && ng serve
 ```
@@ -58,4 +62,10 @@ To compile the backend to a native binary:
 
 ```bash
 cd backend && ./mvnw native:compile -Pnative
+```
+
+## 7. Database Check
+
+```bash
+podman exec -it omnicheck-postgres-dev psql -U omnicheck -d omnicheck_dev -c "\dt"
 ```

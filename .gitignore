@@ -11,6 +11,7 @@ backend/.mvn/wrapper/maven-wrapper.jar
 *.class
 *.jar
 *.war
+*.nar
 
 # IDE
 .idea/
@@ -25,7 +26,14 @@ backend/.mvn/wrapper/maven-wrapper.jar
 frontend/node_modules/
 frontend/dist/
 frontend/.angular/cache/
+frontend/.angular/
+npm-debug.log*
+yarn-error.log*
 
 # OS
 .DS_Store
 Thumbs.db
+
+# GraalVM Native
+backend/target/backend
+backend/target/*.so
